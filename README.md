@@ -1,5 +1,11 @@
 # 📚 Smart Assignment System
 
+![CI/CD Pipeline](https://github.com/bhola-dev58/smart-assignment-system/actions/workflows/ci-cd.yml/badge.svg)
+![Deployment](https://github.com/bhola-dev58/smart-assignment-system/actions/workflows/deploy.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
+![React](https://img.shields.io/badge/react-19.2.0-61dafb.svg)
+
 A modern, full-stack web application for managing assignments between teachers and students. Built with React, Node.js, Express, and MongoDB.
 
 ## ✨ Features
@@ -288,4 +294,3 @@ For questions or support, please open an issue in the repository.
 
 ---
 
-Made with ❤️ for better education management

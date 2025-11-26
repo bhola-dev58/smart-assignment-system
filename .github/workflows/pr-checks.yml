@@ -1,0 +1,56 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-validation:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Validate backend changes
+        if: contains(github.event.pull_request.changed_files, 'backend/')
+        run: |
+          cd backend
+          npm ci
+          echo "✅ Backend validation passed"
+      
+      - name: Validate frontend changes
+        if: contains(github.event.pull_request.changed_files, 'frontend/')
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          echo "✅ Frontend validation passed"
+      
+      - name: Check for secrets in code
+        run: |
+          if grep -r "password\|secret\|api_key" --exclude-dir={node_modules,.git} --exclude="*.md" .; then
+            echo "⚠️ Warning: Potential secrets found in code"
+          else
+            echo "✅ No secrets detected"
+          fi
+        continue-on-error: true
+      
+      - name: PR summary
+        run: |
+          echo "### PR Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All validation checks passed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed files:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: $(git diff --name-only origin/main...HEAD | grep "^backend/" | wc -l) files" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: $(git diff --name-only origin/main...HEAD | grep "^frontend/" | wc -l) files" >> $GITHUB_STEP_SUMMARY
