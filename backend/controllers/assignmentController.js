@@ -1,3 +1,4 @@
+import { supabase } from '../config/supabase.js';
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 
@@ -175,6 +176,45 @@ const getMySubmissions = async (req, res) => {
     }
 };
 
+// Upload file to Supabase Storage and save public URL in MongoDB
+const uploadAssignmentFile = async (req, res) => {
+  try {
+    const { file } = req;
+    const { assignmentId, studentId } = req.body; // Get these from the request
+
+    const filePath = `assignments/${Date.now()}_${file.originalname}`;
+    const { data, error } = await supabase.storage
+      .from('assignments')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('assignments')
+      .getPublicUrl(filePath);
+
+    const publicURL = urlData.publicUrl;
+
+    // Save publicURL to Submission document in MongoDB
+    const submission = new Submission({
+      assignment: assignmentId,
+      student: studentId,
+      fileUrl: publicURL,
+      submittedAt: new Date(),
+    });
+
+    await submission.save();
+
+    res.status(200).json({ url: publicURL, submission });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = { 
     createAssignment,
     publishAssignment,
@@ -183,5 +223,6 @@ module.exports = {
     gradeSubmission,
     returnSubmission,
     getSubmissionsForAssignment,
-    getMySubmissions 
+    getMySubmissions,
+    uploadAssignmentFile 
 };
