@@ -176,41 +176,37 @@ const getMySubmissions = async (req, res) => {
     }
 };
 
-// Upload file to Supabase Storage and save public URL in MongoDB
+// Upload file to Supabase Storage and return public URL
 const uploadAssignmentFile = async (req, res) => {
   try {
-    const { file } = req;
-    const { assignmentId, studentId } = req.body; // Get these from the request
+    if (!req.file) {
+      return res.status(400).json({ msg: 'No file uploaded' });
+    }
 
-    const filePath = `assignments/${Date.now()}_${file.originalname}`;
+    const filePath = `assignments/${Date.now()}_${req.file.originalname}`;
     const { data, error } = await supabase.storage
       .from('assignments')
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype,
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
         upsert: false,
       });
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      console.error('Supabase upload error:', error);
+      return res.status(500).json({ error: error.message });
+    }
 
     // Get public URL
     const { data: urlData } = supabase.storage
       .from('assignments')
       .getPublicUrl(filePath);
 
-    const publicURL = urlData.publicUrl;
+    const fileUrl = urlData.publicUrl;
 
-    // Save publicURL to Submission document in MongoDB
-    const submission = new Submission({
-      assignment: assignmentId,
-      student: studentId,
-      fileUrl: publicURL,
-      submittedAt: new Date(),
-    });
-
-    await submission.save();
-
-    res.status(200).json({ url: publicURL, submission });
+    // Return the file URL (frontend will use this in submit request)
+    res.json({ fileUrl: fileUrl });
   } catch (err) {
+    console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
 };
