@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js';
+const { supabase } = require('../config/supabase');
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 
