@@ -133,12 +133,19 @@ const Dashboard = () => {
     try {
       setUploading(true);
       
+      console.log('Uploading file:', file.name);
       const uploadRes = await api.post('/assignments/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
+      console.log('Upload response:', uploadRes.data);
       const fileUrl = uploadRes.data.fileUrl;
 
+      if (!fileUrl) {
+        throw new Error('No file URL returned from server');
+      }
+
+      console.log('Submitting assignment with fileUrl:', fileUrl);
       await api.post('/assignments/submit', {
         assignmentId,
         fileUrl,
@@ -149,8 +156,10 @@ const Dashboard = () => {
       setSelectedFile({ ...selectedFile, [assignmentId]: null });
       fetchMySubmissions();
     } catch (err) {
-      console.error(err);
-      alert('❌ Submission failed. Please try again.');
+      console.error('Submission error:', err);
+      console.error('Error response:', err.response?.data);
+      const errorMsg = err.response?.data?.error || err.response?.data?.msg || err.message || 'Unknown error';
+      alert(`❌ Submission failed: ${errorMsg}`);
     } finally {
       setUploading(false);
     }

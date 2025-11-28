@@ -1,4 +1,4 @@
-const { supabase } = require('../config/supabase');
+// Supabase import removed
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 
@@ -176,42 +176,26 @@ const getMySubmissions = async (req, res) => {
     }
 };
 
-// Upload file to Supabase Storage and return public URL
+// Upload file and return local URL
 const uploadAssignmentFile = async (req, res) => {
   try {
     if (!req.file) {
+      console.error('No file uploaded');
       return res.status(400).json({ msg: 'No file uploaded' });
     }
 
-    const filePath = `assignments/${Date.now()}_${req.file.originalname}`;
-    const { data, error } = await supabase.storage
-      .from('assignments')
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: false,
-      });
-
-    if (error) {
-      console.error('Supabase upload error:', error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('assignments')
-      .getPublicUrl(filePath);
-
-    const fileUrl = urlData.publicUrl;
-
-    // Return the file URL (frontend will use this in submit request)
-    res.json({ fileUrl: fileUrl });
+    // Generate URL for the uploaded file
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    
+    console.log('File uploaded successfully:', fileUrl);
+    res.json({ fileUrl });
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
-};
-
-module.exports = { 
+};module.exports = { 
     createAssignment,
     publishAssignment,
     getAssignments, 

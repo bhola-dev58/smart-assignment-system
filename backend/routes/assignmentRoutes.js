@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
-const multer = require('multer');
-const upload = multer(); // memory storage for buffer
+const upload = require('../middleware/uploadMiddleware'); // Use disk storage upload middleware
 const { 
     createAssignment,
     publishAssignment,
