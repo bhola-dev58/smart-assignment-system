@@ -6,9 +6,6 @@ const Submission = require('../models/Submission');
 // @route   POST /api/assignments
 const createAssignment = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
         
         const { title, description, deadline, rubric, totalPoints } = req.body;
         
@@ -33,9 +30,6 @@ const createAssignment = async (req, res) => {
 // @route   PUT /api/assignments/:id/publish
 const publishAssignment = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const assignment = await Assignment.findByIdAndUpdate(
             req.params.id,
@@ -59,9 +53,11 @@ const getAssignments = async (req, res) => {
         if (req.user.role === 'student') {
             query.published = true;
         }
-        // Teachers see all their assignments
+        // Teachers see their own assignments; Admins see all assignments
         else if (req.user.role === 'teacher') {
             query.teacher = req.user.id;
+        } else if (req.user.role === 'admin') {
+            // no additional filter -> list all assignments for administrative oversight
         }
         
         const assignments = await Assignment.find(query).populate('teacher', 'name email'); 
@@ -95,9 +91,6 @@ const submitAssignment = async (req, res) => {
 // @route   POST /api/assignments/grade
 const gradeSubmission = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const { submissionId, rubricScores, teacherFeedback } = req.body;
 
@@ -129,9 +122,6 @@ const gradeSubmission = async (req, res) => {
 // @route   PUT /api/assignments/submissions/:id/return
 const returnSubmission = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const submission = await Submission.findByIdAndUpdate(
             req.params.id,
@@ -149,9 +139,6 @@ const returnSubmission = async (req, res) => {
 // @route   GET /api/assignments/:assignmentId/submissions
 const getSubmissionsForAssignment = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const submissions = await Submission.find({ assignment: req.params.assignmentId })
             .populate('student', 'name email')

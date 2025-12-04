@@ -1,12 +1,13 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { sendOTPEmail } = require('../utils/mail');
 
-// @desc    Register a new user
+// @desc    Register a new user with OTP email verification
 // @route   POST /api/auth/register
 const registerUser = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password, role, inviteCode } = req.body;
 
         // 1. Check if user exists
         let user = await User.findOne({ email });
@@ -18,29 +19,87 @@ const registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // 3. Create User
+        // 3. Create User (admin logic preserved)
+        let finalRole = role;
+        const allowAdminByEmail = process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.toLowerCase() === String(email).toLowerCase();
+        const allowAdminByCode = process.env.ADMIN_INVITE_CODE && inviteCode === process.env.ADMIN_INVITE_CODE;
+        if (role === 'admin' && !(allowAdminByEmail || allowAdminByCode)) {
+            return res.status(403).json({ msg: 'Admin registration not allowed. Provide valid invite code or configured admin email.' });
+        }
+        const adminsCount = await User.countDocuments({ role: 'admin' });
+        if (role === 'admin' && adminsCount === 0) {
+            finalRole = 'admin';
+        } else if (role === 'admin' && (allowAdminByEmail || allowAdminByCode)) {
+            finalRole = 'admin';
+        } else if (role === 'admin') {
+            finalRole = 'student';
+        }
+
+        // 4. Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
+
         user = new User({
             name,
             email,
             password: hashedPassword,
-            role // 'student' or 'teacher'
+            role: finalRole,
+            isVerified: false,
+            otp,
+            otpExpiry
         });
 
         await user.save();
 
-        // 4. Create Token (Payload)
+        // 5. Send OTP email
+        try {
+            await sendOTPEmail(email, otp);
+            res.json({ msg: 'Registration successful. Please check your email for the OTP to verify your account.', success: true });
+        } catch (mailErr) {
+            // If email fails, delete user to avoid orphaned accounts
+            await User.deleteOne({ email });
+            console.error('OTP email error:', mailErr);
+            res.status(500).json({ msg: 'Failed to send OTP email. Please try again.', success: false });
+        }
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};
+// @desc    Verify OTP and activate user
+// @route   POST /api/auth/verify-otp
+const verifyOTP = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found' });
+        }
+        if (user.isVerified) {
+            return res.status(400).json({ msg: 'User already verified' });
+        }
+        if (!user.otp || !user.otpExpiry || user.otp !== otp) {
+            return res.status(400).json({ msg: 'Invalid OTP' });
+        }
+        if (user.otpExpiry < new Date()) {
+            return res.status(400).json({ msg: 'OTP expired' });
+        }
+        user.isVerified = true;
+        user.otp = undefined;
+        user.otpExpiry = undefined;
+        await user.save();
+
+        // Issue JWT after verification
         const payload = {
             user: {
                 id: user.id,
                 role: user.role
             }
         };
-
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' }, (err, token) => {
             if (err) throw err;
-            res.json({ token, msg: "Registration successful" });
+            res.json({ token, role: user.role, name: user.name, msg: 'Account verified and logged in.' });
         });
-
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -101,4 +160,4 @@ const getMe = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, getMe };
+module.exports = { registerUser, loginUser, getMe, verifyOTP };

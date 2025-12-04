@@ -18,6 +18,8 @@ app.use(cors());
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/assignments', require('./routes/assignmentRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 app.use('/uploads', express.static('uploads')); // Serve uploaded files statically
 
 const PORT = process.env.PORT || 5000;

@@ -1,3 +1,92 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+	--neon-bg-1: #0f172a; /* deep navy */
+	--neon-accent: #6ee7b7; /* mint */
+	--neon-accent-2: #7c3aed; /* purple */
+	--neon-glow: rgba(124, 58, 237, 0.25);
+	--neon-surface: rgba(255,255,255,0.03);
+	--neon-border: rgba(124,58,237,0.35);
+}
+
+/* Neon grid background and common neon surfaces */
+@layer utilities {
+	.neon-grid-bg {
+		position: relative;
+		min-height: 100vh;
+		background: radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.12), transparent 10%),
+								radial-gradient(1000px 500px at 90% 90%, rgba(99,102,241,0.08), transparent 18%),
+								var(--neon-bg-1);
+		color: #e6f7ff;
+		overflow: hidden;
+	}
+
+	.neon-grid-bg::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+		background-size: 40px 40px, 40px 40px;
+		opacity: 0.14;
+		mix-blend-mode: overlay;
+		pointer-events: none;
+	}
+
+	.neon-card {
+		background: #1f2937; /* gray-800 */
+		border: 1px solid rgba(255,255,255,0.08);
+		box-shadow: 0 6px 24px rgba(2,6,23,0.55);
+		backdrop-filter: blur(4px);
+		color: #e6f7ff;
+	}
+
+	.neon-btn {
+		background: linear-gradient(90deg, var(--neon-accent), var(--neon-accent-2));
+		color: #071029;
+		box-shadow: 0 6px 18px rgba(124,58,237,0.18), 0 0 12px rgba(110,231,183,0.08);
+	}
+
+	.neon-input {
+		background: #111827; /* gray-900 */
+		border: 1px solid #374151; /* gray-700 */
+		color: #e6f7ff;
+	}
+
+	.neon-surface {
+		background: #111827; /* gray-900 subtle surface */
+	}
+}
+
+/* Force readable text in neon areas by overriding common Tailwind grays */
+.neon-grid-bg,
+.neon-card {
+	color: #e6f7ff;
+}
+
+.neon-grid-bg .text-gray-400,
+.neon-grid-bg .text-gray-500,
+.neon-grid-bg .text-gray-600,
+.neon-grid-bg .text-gray-700,
+.neon-grid-bg .text-gray-800,
+.neon-grid-bg .text-gray-900,
+.neon-card .text-gray-400,
+.neon-card .text-gray-500,
+.neon-card .text-gray-600,
+.neon-card .text-gray-700,
+.neon-card .text-gray-800,
+.neon-card .text-gray-900 {
+	color: #e6f7ff !important;
+}
+
+/* Links and badges keep contrast but glow slightly */
+.neon-grid-bg a,
+.neon-card a {
+	color: #93c5fd;
+	text-decoration-color: rgba(147,197,253,0.5);
+}
+.neon-grid-bg a:hover,
+.neon-card a:hover {
+	color: #bfdbfe;
+}
