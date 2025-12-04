@@ -1,4 +1,4 @@
-const { supabase } = require('../config/supabase');
+// Supabase import removed
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 
@@ -6,9 +6,6 @@ const Submission = require('../models/Submission');
 // @route   POST /api/assignments
 const createAssignment = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
         
         const { title, description, deadline, rubric, totalPoints } = req.body;
         
@@ -33,9 +30,6 @@ const createAssignment = async (req, res) => {
 // @route   PUT /api/assignments/:id/publish
 const publishAssignment = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const assignment = await Assignment.findByIdAndUpdate(
             req.params.id,
@@ -59,9 +53,11 @@ const getAssignments = async (req, res) => {
         if (req.user.role === 'student') {
             query.published = true;
         }
-        // Teachers see all their assignments
+        // Teachers see their own assignments; Admins see all assignments
         else if (req.user.role === 'teacher') {
             query.teacher = req.user.id;
+        } else if (req.user.role === 'admin') {
+            // no additional filter -> list all assignments for administrative oversight
         }
         
         const assignments = await Assignment.find(query).populate('teacher', 'name email'); 
@@ -95,9 +91,6 @@ const submitAssignment = async (req, res) => {
 // @route   POST /api/assignments/grade
 const gradeSubmission = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const { submissionId, rubricScores, teacherFeedback } = req.body;
 
@@ -129,9 +122,6 @@ const gradeSubmission = async (req, res) => {
 // @route   PUT /api/assignments/submissions/:id/return
 const returnSubmission = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const submission = await Submission.findByIdAndUpdate(
             req.params.id,
@@ -149,9 +139,6 @@ const returnSubmission = async (req, res) => {
 // @route   GET /api/assignments/:assignmentId/submissions
 const getSubmissionsForAssignment = async (req, res) => {
     try {
-        if (req.user.role !== 'teacher') {
-            return res.status(403).json({ msg: "Access denied. Teachers only." });
-        }
 
         const submissions = await Submission.find({ assignment: req.params.assignmentId })
             .populate('student', 'name email')
@@ -176,42 +163,26 @@ const getMySubmissions = async (req, res) => {
     }
 };
 
-// Upload file to Supabase Storage and return public URL
+// Upload file and return local URL
 const uploadAssignmentFile = async (req, res) => {
   try {
     if (!req.file) {
+      console.error('No file uploaded');
       return res.status(400).json({ msg: 'No file uploaded' });
     }
 
-    const filePath = `assignments/${Date.now()}_${req.file.originalname}`;
-    const { data, error } = await supabase.storage
-      .from('assignments')
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: false,
-      });
-
-    if (error) {
-      console.error('Supabase upload error:', error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('assignments')
-      .getPublicUrl(filePath);
-
-    const fileUrl = urlData.publicUrl;
-
-    // Return the file URL (frontend will use this in submit request)
-    res.json({ fileUrl: fileUrl });
+    // Generate URL for the uploaded file
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    
+    console.log('File uploaded successfully:', fileUrl);
+    res.json({ fileUrl });
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
-};
-
-module.exports = { 
+};module.exports = { 
     createAssignment,
     publishAssignment,
     getAssignments, 

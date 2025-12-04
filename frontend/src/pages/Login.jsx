@@ -31,8 +31,8 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center neon-grid-bg p-4">
+      <div className="neon-card p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">📚</div>
           <h2 className="text-3xl font-bold text-indigo-600">Welcome Back</h2>
@@ -44,7 +44,7 @@ const Login = () => {
             <label className="block text-gray-700 font-semibold mb-2">Email Address</label>
             <input 
               type="email" 
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="neon-input w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               placeholder="your.email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -56,7 +56,7 @@ const Login = () => {
             <label className="block text-gray-700 font-semibold mb-2">Password</label>
             <input 
               type="password" 
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="neon-input w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -67,10 +67,10 @@ const Login = () => {
           <button 
             type="submit"
             disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-bold text-lg transition shadow-lg ${
+            className={`w-full py-3 rounded-lg font-bold text-lg transition shadow-lg ${
               loading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl'
+                ? 'bg-gray-400 cursor-not-allowed text-white' 
+                : 'neon-btn hover:opacity-95 text-white'
             }`}
           >
             {loading ? '⏳ Signing in...' : '🚀 Sign In'}
@@ -87,9 +87,9 @@ const Login = () => {
         </div>
 
         {/* Demo Credentials Info */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mt-6 p-4 neon-surface rounded-lg border border-indigo-500/40">
           <p className="text-sm text-blue-800 font-semibold mb-2">💡 Quick Start:</p>
-          <p className="text-xs text-blue-700">Register as a Teacher or Student to get started!</p>
+          <p className="text-xs opacity-85">Register as a Teacher or Student to get started!</p>
         </div>
       </div>
     </div>
