@@ -23,7 +23,14 @@ router.get('/oauth/callback', async (req, res) => {
     const oAuth2Client = getOAuthClient();
     const { tokens } = await oAuth2Client.getToken(code);
     saveToken(tokens);
-    res.send('Google OAuth successful. Tokens saved. You can close this window.');
+    res.send(`<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"><title>OAuth Complete</title></head>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px;">
+    <h2>Google OAuth successful. Tokens saved.</h2>
+    <p>You can close this window and return to the app.</p>
+  </body>
+</html>`);
   } catch (err) {
     res.status(500).send('OAuth error: ' + err.message);
   }
