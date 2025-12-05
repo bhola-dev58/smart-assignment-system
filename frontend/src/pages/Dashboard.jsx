@@ -140,15 +140,20 @@ const Dashboard = () => {
       
       console.log('Upload response:', uploadRes.data);
       const fileUrl = uploadRes.data.fileUrl;
+      const driveFileId = uploadRes.data.driveFileId;
 
       if (!fileUrl) {
         throw new Error('No file URL returned from server');
       }
 
       console.log('Submitting assignment with fileUrl:', fileUrl);
+      if (driveFileId) {
+        console.log('Drive file ID:', driveFileId);
+      }
       await api.post('/assignments/submit', {
         assignmentId,
         fileUrl,
+        ...(driveFileId ? { driveFileId } : {}),
         note: 'Submitted via dashboard'
       });
 
