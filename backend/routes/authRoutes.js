@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, getMe, verifyOTP } = require('../controllers/authController');
+const { registerUser, loginUser, getMe, verifyOTP, resendOTP } = require('../controllers/authController');
 // Route: /api/auth/verify-otp
 router.post('/verify-otp', verifyOTP);
+// Route: /api/auth/resend-otp
+router.post('/resend-otp', resendOTP);
 const auth = require('../middleware/authMiddleware');
 
 // Route: /api/auth/register

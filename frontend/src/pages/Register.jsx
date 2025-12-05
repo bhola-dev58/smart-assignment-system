@@ -15,6 +15,7 @@ const Register = () => {
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -73,6 +74,20 @@ const Register = () => {
       alert(err.response?.data?.msg || '❌ OTP verification failed.');
     } finally {
       setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!formData.email) return alert('Email missing. Please fill the registration form again.');
+    try {
+      setResendLoading(true);
+      const res = await api.post('/auth/resend-otp', { email: formData.email });
+      alert(res.data?.msg || 'New OTP sent to your email.');
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.msg || 'Failed to resend OTP.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -210,6 +225,16 @@ const Register = () => {
               }`}
             >
               {otpLoading ? '⏳ Verifying...' : '✅ Verify & Activate'}
+            </button>
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={resendLoading}
+              className={`w-full py-3 rounded-lg font-semibold transition shadow mt-2 ${
+                resendLoading ? 'bg-gray-200 text-gray-600' : 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50'
+              }`}
+            >
+              {resendLoading ? 'Sending...' : 'Resend OTP'}
             </button>
           </form>
         )}
