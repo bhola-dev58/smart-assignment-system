@@ -45,6 +45,15 @@ async function uploadWithOAuth(filePath, fileName, folderId = null) {
   const media = { mimeType: 'application/octet-stream', body: fs.createReadStream(filePath) };
   const res = await drive.files.create({ resource: fileMetadata, media, fields: 'id', supportsAllDrives: true });
   const fileId = res.data.id;
+  // Set permission: anyone with the link can view
+  await drive.permissions.create({
+    fileId,
+    requestBody: {
+      role: 'reader',
+      type: 'anyone',
+    },
+    supportsAllDrives: true,
+  });
   const linkRes = await drive.files.get({ fileId, fields: 'webViewLink', supportsAllDrives: true });
   return { fileId, webViewLink: linkRes.data.webViewLink };
 }
