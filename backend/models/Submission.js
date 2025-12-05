@@ -19,6 +19,7 @@ const SubmissionSchema = new mongoose.Schema({
         required: true
     },
     fileUrl: { type: String, required: true },
+    driveFileId: { type: String },
     note: { type: String }, // Optional message from student
     grade: { type: Number, default: null }, // Total calculated grade
     rubricScores: [RubricScoreSchema], // Individual rubric scores

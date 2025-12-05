@@ -71,12 +71,13 @@ const getAssignments = async (req, res) => {
 // @route   POST /api/assignments/submit
 const submitAssignment = async (req, res) => {
     try {
-        const { assignmentId, fileUrl, note } = req.body;
+        const { assignmentId, fileUrl, driveFileId, note } = req.body;
 
         const newSubmission = new Submission({
             assignment: assignmentId,
             student: req.user.id,
             fileUrl,
+            driveFileId,
             note
         });
 
@@ -163,26 +164,50 @@ const getMySubmissions = async (req, res) => {
     }
 };
 
-// Upload file and return local URL
-const uploadAssignmentFile = async (req, res) => {
-  try {
-    if (!req.file) {
-      console.error('No file uploaded');
-      return res.status(400).json({ msg: 'No file uploaded' });
-    }
+// Upload file and return URL (Drive if enabled, else local)
+const fs = require('fs');
+const path = require('path');
+let uploadFileToDrive;
+try {
+    ({ uploadFileToDrive } = require('../utils/drive'));
+} catch (_) {
+    uploadFileToDrive = null;
+}
+let uploadWithOAuth, hasToken;
+try {
+    ({ uploadWithOAuth, hasToken } = require('../utils/googleOAuth'));
+} catch (_) {
+    uploadWithOAuth = null;
+    hasToken = () => false;
+}
 
-    // Generate URL for the uploaded file
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
-    
-    console.log('File uploaded successfully:', fileUrl);
-    res.json({ fileUrl });
-  } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: err.message });
-  }
-};module.exports = { 
+const uploadAssignmentFile = async (req, res) => {
+    try {
+        if (!req.file) {
+            console.error('No file uploaded');
+            return res.status(400).json({ msg: 'No file uploaded' });
+        }
+
+        const driveEnabled = String(process.env.DRIVE_UPLOAD_ENABLED || '').trim().toLowerCase() === 'true';
+        const canUseOAuth = Boolean(uploadWithOAuth) && hasToken();
+        const canUseDrive = false; // disable service account path to avoid quota issues
+        if (!canUseOAuth) {
+            return res.status(401).json({ error: 'Google OAuth not completed. Visit /api/drive/oauth/init to connect your Drive.' });
+        }
+        if (canUseOAuth) {
+            const localPath = path.join(req.file.destination || 'uploads/', req.file.filename);
+            const driveRes = await uploadWithOAuth(localPath, req.file.originalname || req.file.filename, process.env.DRIVE_FOLDER_ID || null);
+            try { fs.unlinkSync(localPath); } catch (e) {}
+            console.log('File uploaded to Drive via OAuth:', driveRes.webViewLink);
+            return res.json({ fileUrl: driveRes.webViewLink, driveFileId: driveRes.fileId });
+        }
+        // unreachable due to OAuth required above
+    } catch (err) {
+        console.error('Upload error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+module.exports = { 
     createAssignment,
     publishAssignment,
     getAssignments, 
