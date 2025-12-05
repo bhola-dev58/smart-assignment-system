@@ -132,20 +132,16 @@ const Dashboard = () => {
 
     try {
       setUploading(true);
-      
       console.log('Uploading file:', file.name);
       const uploadRes = await api.post('/assignments/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
       console.log('Upload response:', uploadRes.data);
       const fileUrl = uploadRes.data.fileUrl;
       const driveFileId = uploadRes.data.driveFileId;
-
       if (!fileUrl) {
         throw new Error('No file URL returned from server');
       }
-
       console.log('Submitting assignment with fileUrl:', fileUrl);
       if (driveFileId) {
         console.log('Drive file ID:', driveFileId);
@@ -156,15 +152,22 @@ const Dashboard = () => {
         ...(driveFileId ? { driveFileId } : {}),
         note: 'Submitted via dashboard'
       });
-
       alert('✅ Assignment Submitted Successfully!');
       setSelectedFile({ ...selectedFile, [assignmentId]: null });
       fetchMySubmissions();
     } catch (err) {
       console.error('Submission error:', err);
       console.error('Error response:', err.response?.data);
+      // Multer file too large error handling
       const errorMsg = err.response?.data?.error || err.response?.data?.msg || err.message || 'Unknown error';
-      alert(`❌ Submission failed: ${errorMsg}`);
+      if (
+        errorMsg.includes('File too large') ||
+        (err.name === 'MulterError' && err.message && err.message.includes('File too large'))
+      ) {
+        alert('❌ File too large. Maximum allowed size is 5MB.');
+      } else {
+        alert(`❌ Submission failed: ${errorMsg}`);
+      }
     } finally {
       setUploading(false);
     }

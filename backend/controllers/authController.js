@@ -51,16 +51,18 @@ const registerUser = async (req, res) => {
 
         await user.save();
 
-        // 5. Send OTP email
+        // 5. Send OTP email (non-blocking UX: allow OTP entry even if email fails)
+        let emailSent = true;
         try {
             await sendOTPEmail(email, otp);
-            res.json({ msg: 'Registration successful. Please check your email for the OTP to verify your account.', success: true });
         } catch (mailErr) {
-            // If email fails, delete user to avoid orphaned accounts
-            await User.deleteOne({ email });
+            emailSent = false;
             console.error('OTP email error:', mailErr);
-            res.status(500).json({ msg: 'Failed to send OTP email. Please try again.', success: false });
         }
+        const msg = emailSent
+            ? 'Registration successful. Please check your email for the OTP to verify your account.'
+            : 'Registration successful. Email delivery failed; please enter the OTP shown on the app if available, or request resend later.';
+        res.json({ msg, success: true, emailSent });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -160,4 +162,36 @@ const getMe = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, getMe, verifyOTP };
+// @desc    Resend OTP to user's email
+// @route   POST /api/auth/resend-otp
+const resendOTP = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found' });
+        }
+        if (user.isVerified) {
+            return res.status(400).json({ msg: 'User already verified' });
+        }
+        // regenerate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+        user.otp = otp;
+        user.otpExpiry = otpExpiry;
+        await user.save();
+
+        try {
+            await sendOTPEmail(email, otp);
+            return res.json({ success: true, msg: 'OTP resent. Please check your email.' });
+        } catch (mailErr) {
+            console.error('Resend OTP email error:', mailErr);
+            return res.status(500).json({ success: false, msg: 'Failed to resend OTP email. Please try again later.' });
+        }
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};
+
+module.exports = { registerUser, loginUser, getMe, verifyOTP, resendOTP };
