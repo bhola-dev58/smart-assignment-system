@@ -1,8 +1,22 @@
-// Use Resend transactional email API for OTP delivery
-const { sendOTPEmailResend } = require('./resend');
+const nodemailer = require('nodemailer');
+
+// Gmail SMTP configuration for local development
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 async function sendOTPEmail(to, otp) {
-  return sendOTPEmailResend(to, otp);
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject: 'Your OTP Code for Registration',
+    text: `Your OTP code is: ${otp}. It is valid for 10 minutes.`,
+  };
+  return transporter.sendMail(mailOptions);
 }
 
 module.exports = { sendOTPEmail };
