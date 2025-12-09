@@ -42,7 +42,11 @@ const Register = () => {
       });
       if (res.data && res.data.success) {
         setOtpStep(true);
-        alert(res.data.msg || '✅ Registration successful! Please check your email for the OTP.');
+        if (res.data.devOtp) {
+          alert(`⚠️ Email Failed (Dev Mode). Your OTP is: ${res.data.devOtp}`);
+        } else {
+          alert(res.data.msg || '✅ Registration successful! Please check your email for the OTP.');
+        }
       } else {
         alert(res.data.msg || '❌ Registration failed. Please try again.');
       }
@@ -104,8 +108,8 @@ const Register = () => {
             {/* Name Field */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="name"
                 className="neon-input w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 placeholder="Enter your full name"
@@ -117,8 +121,8 @@ const Register = () => {
             {/* Email Field */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Email Address</label>
-              <input 
-                type="email" 
+              <input
+                type="email"
                 name="email"
                 className="neon-input w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 placeholder="your.email@example.com"
@@ -134,22 +138,20 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, role: 'student' })}
-                  className={`p-3 rounded-lg border-2 transition font-semibold ${
-                    formData.role === 'student'
+                  className={`p-3 rounded-lg border-2 transition font-semibold ${formData.role === 'student'
                       ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
                       : 'border-gray-300 text-gray-600 hover:border-indigo-400'
-                  }`}
+                    }`}
                 >
                   🎓 Student
                 </button>
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, role: 'teacher' })}
-                  className={`p-3 rounded-lg border-2 transition font-semibold ${
-                    formData.role === 'teacher'
+                  className={`p-3 rounded-lg border-2 transition font-semibold ${formData.role === 'teacher'
                       ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
                       : 'border-gray-300 text-gray-600 hover:border-indigo-400'
-                  }`}
+                    }`}
                 >
                   👨‍🏫 Teacher
                 </button>
@@ -158,8 +160,8 @@ const Register = () => {
             {/* Password Field */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 name="password"
                 className="neon-input w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 placeholder="At least 6 characters"
@@ -172,8 +174,8 @@ const Register = () => {
             {/* Confirm Password Field */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Confirm Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 name="confirmPassword"
                 className="neon-input w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 placeholder="Re-enter your password"
@@ -183,14 +185,13 @@ const Register = () => {
               />
             </div>
             {/* Submit Button */}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
-              className={`w-full py-3 rounded-lg font-bold text-lg transition shadow-lg ${
-                loading 
-                  ? 'bg-gray-400 cursor-not-allowed text-white' 
+              className={`w-full py-3 rounded-lg font-bold text-lg transition shadow-lg ${loading
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
                   : 'neon-btn hover:opacity-95 text-white'
-              }`}
+                }`}
             >
               {loading ? '⏳ Creating Account...' : '🚀 Create Account'}
             </button>
@@ -218,11 +219,10 @@ const Register = () => {
             <button
               type="submit"
               disabled={otpLoading}
-              className={`w-full py-3 rounded-lg font-bold text-lg transition shadow-lg ${
-                otpLoading
+              className={`w-full py-3 rounded-lg font-bold text-lg transition shadow-lg ${otpLoading
                   ? 'bg-gray-400 cursor-not-allowed text-white'
                   : 'neon-btn hover:opacity-95 text-white'
-              }`}
+                }`}
             >
               {otpLoading ? '⏳ Verifying...' : '✅ Verify & Activate'}
             </button>
@@ -230,9 +230,8 @@ const Register = () => {
               type="button"
               onClick={handleResendOtp}
               disabled={resendLoading}
-              className={`w-full py-3 rounded-lg font-semibold transition shadow mt-2 ${
-                resendLoading ? 'bg-gray-200 text-gray-600' : 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50'
-              }`}
+              className={`w-full py-3 rounded-lg font-semibold transition shadow mt-2 ${resendLoading ? 'bg-gray-200 text-gray-600' : 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50'
+                }`}
             >
               {resendLoading ? 'Sending...' : 'Resend OTP'}
             </button>

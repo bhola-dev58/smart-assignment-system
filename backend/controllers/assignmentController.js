@@ -6,9 +6,9 @@ const Submission = require('../models/Submission');
 // @route   POST /api/assignments
 const createAssignment = async (req, res) => {
     try {
-        
+
         const { title, description, deadline, rubric, totalPoints } = req.body;
-        
+
         const newAssignment = new Assignment({
             title,
             description,
@@ -37,6 +37,23 @@ const publishAssignment = async (req, res) => {
             { new: true }
         );
 
+        // Notify all students
+        const User = require('../models/User'); // Dynamic import to avoid circular dependency issues if any
+        const { sendNewAssignmentEmail } = require('../utils/mail');
+
+        try {
+            const students = await User.find({ role: 'student' }).select('email');
+            const studentEmails = students.map(s => s.email);
+
+            if (studentEmails.length > 0) {
+                await sendNewAssignmentEmail(studentEmails, assignment);
+                console.log(`Notification sent to ${studentEmails.length} students.`);
+            }
+        } catch (mailError) {
+            console.error("Failed to send assignment notifications:", mailError);
+            // Don't fail the request just because email failed
+        }
+
         res.json({ msg: "Assignment published successfully", assignment });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -48,7 +65,7 @@ const publishAssignment = async (req, res) => {
 const getAssignments = async (req, res) => {
     try {
         let query = {};
-        
+
         // Students only see published assignments
         if (req.user.role === 'student') {
             query.published = true;
@@ -59,8 +76,8 @@ const getAssignments = async (req, res) => {
         } else if (req.user.role === 'admin') {
             // no additional filter -> list all assignments for administrative oversight
         }
-        
-        const assignments = await Assignment.find(query).populate('teacher', 'name email'); 
+
+        const assignments = await Assignment.find(query).populate('teacher', 'name email');
         res.json(assignments);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -103,7 +120,7 @@ const gradeSubmission = async (req, res) => {
 
         const submission = await Submission.findByIdAndUpdate(
             submissionId,
-            { 
+            {
                 grade: totalGrade,
                 rubricScores: rubricScores || [],
                 teacherFeedback: teacherFeedback || '',
@@ -144,7 +161,7 @@ const getSubmissionsForAssignment = async (req, res) => {
         const submissions = await Submission.find({ assignment: req.params.assignmentId })
             .populate('student', 'name email')
             .populate('assignment', 'title');
-        
+
         res.json(submissions);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -157,7 +174,7 @@ const getMySubmissions = async (req, res) => {
     try {
         const submissions = await Submission.find({ student: req.user.id })
             .populate('assignment', 'title description deadline');
-        
+
         res.json(submissions);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -197,7 +214,7 @@ const uploadAssignmentFile = async (req, res) => {
         if (canUseOAuth) {
             const localPath = path.join(req.file.destination || 'uploads/', req.file.filename);
             const driveRes = await uploadWithOAuth(localPath, req.file.originalname || req.file.filename, process.env.DRIVE_FOLDER_ID || null);
-            try { fs.unlinkSync(localPath); } catch (e) {}
+            try { fs.unlinkSync(localPath); } catch (e) { }
             console.log('File uploaded to Drive via OAuth:', driveRes.webViewLink);
             return res.json({ fileUrl: driveRes.webViewLink, driveFileId: driveRes.fileId });
         }
@@ -207,14 +224,14 @@ const uploadAssignmentFile = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
-module.exports = { 
+module.exports = {
     createAssignment,
     publishAssignment,
-    getAssignments, 
-    submitAssignment, 
+    getAssignments,
+    submitAssignment,
     gradeSubmission,
     returnSubmission,
     getSubmissionsForAssignment,
     getMySubmissions,
-    uploadAssignmentFile 
+    uploadAssignmentFile
 };

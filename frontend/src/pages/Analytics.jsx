@@ -1,104 +1,241 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-
-// Lightweight charts using plain SVG to avoid adding dependencies
-const LineChart = ({ data }) => {
-  const width = 600; const height = 200; const padding = 30;
-  if (!data || data.length === 0) return <div className="text-sm opacity-75">No data</div>;
-  const maxY = Math.max(...data.map(d => d.count)) || 1;
-  const points = data.map((d, i) => {
-    const x = padding + (i * (width - 2 * padding)) / Math.max(data.length - 1, 1);
-    const y = height - padding - (d.count / maxY) * (height - 2 * padding);
-    return `${x},${y}`;
-  }).join(' ');
-  return (
-    <svg width={width} height={height} className="bg-transparent">
-      <polyline fill="none" stroke="#6366F1" strokeWidth="2" points={points} />
-      {data.map((d, i) => {
-        const x = padding + (i * (width - 2 * padding)) / Math.max(data.length - 1, 1);
-        const y = height - padding - (d.count / maxY) * (height - 2 * padding);
-        return <circle key={d.date} cx={x} cy={y} r="3" fill="#22C55E" />;
-      })}
-    </svg>
-  );
-};
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
+import { AlertTriangle, TrendingDown, Clock, XCircle, CheckCircle } from 'lucide-react';
 
 const Analytics = () => {
-  const [overview, setOverview] = useState(null);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [role, setRole] = useState('');
 
   useEffect(() => {
     setRole(localStorage.getItem('role'));
-    fetchOverview();
+    fetchAnalytics();
   }, []);
 
-  const fetchOverview = async () => {
+  const fetchAnalytics = async () => {
     try {
-      const res = await api.get('/analytics/overview');
-      setOverview(res.data);
+      const res = await api.get('/analytics');
+      setData(res.data);
     } catch (err) {
       console.error('Analytics fetch error:', err);
-      alert(err.response?.data?.msg || err.response?.data?.error || 'Failed to load analytics');
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (loading) return <div className="min-h-screen neon-grid-bg flex items-center justify-center text-white">Loading Analytics...</div>;
+
+  const COLORS = ['#F59E0B', '#EF4444', '#10B981', '#6366F1'];
+
   return (
-    <div className="min-h-screen neon-grid-bg text-white">
-      <div className="neon-card shadow-lg">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-indigo-600">📈 Analytics</h1>
-            <p className="text-sm mt-1">Role: <span className="font-semibold">{role}</span></p>
-          </div>
+    <div className="min-h-screen neon-grid-bg text-white pb-12">
+      {/* Header */}
+      <div className="neon-card shadow-lg mb-8">
+        <div className="container mx-auto px-6 py-4">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <span className="text-indigo-400">📉</span> Smart Insight Dashboard
+          </h1>
+          <p className="text-gray-400 mt-1">Real-time student risk analysis and performance metrics</p>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        {!overview ? (
-          <div className="neon-surface p-8 rounded-xl">Loading…</div>
-        ) : (
-          <>
-            {/* Summary Cards */}
-            <div className="grid gap-6 md:grid-cols-3 mb-8">
-              <div className="neon-card p-6 rounded-xl border-l-4 border-indigo-500">
-                <h3 className="text-sm font-semibold opacity-85">Total Assignments</h3>
-                <div className="text-3xl font-bold text-indigo-400 mt-2">{overview.assignments.total}</div>
-                <div className="text-xs opacity-70 mt-1">Published: {overview.assignments.published}</div>
-              </div>
-              <div className="neon-card p-6 rounded-xl border-l-4 border-emerald-500">
-                <h3 className="text-sm font-semibold opacity-85">Submissions</h3>
-                <div className="text-3xl font-bold text-emerald-400 mt-2">
-                  {Object.values(overview.submissions.byStatus).reduce((a, b) => a + b, 0)}</div>
-                <div className="text-xs opacity-70 mt-1">Graded: {overview.submissions.graded.count}</div>
-              </div>
-              <div className="neon-card p-6 rounded-xl border-l-4 border-yellow-500">
-                <h3 className="text-sm font-semibold opacity-85">Average Grade</h3>
-                <div className="text-3xl font-bold text-yellow-300 mt-2">
-                  {Math.round((overview.submissions.graded.avgGrade || 0) * 10) / 10}
-                </div>
-              </div>
-            </div>
+      <div className="container mx-auto px-6">
 
-            {/* Status Breakdown */}
-            <div className="neon-card p-6 rounded-xl mb-8">
-              <h3 className="text-lg font-bold mb-4">Status Breakdown</h3>
-              <div className="grid gap-4 md:grid-cols-4">
-                {Object.entries(overview.submissions.byStatus).map(([status, count]) => (
-                  <div key={status} className="neon-surface p-4 rounded-lg">
-                    <div className="text-xs opacity-80">{status || 'unknown'}</div>
-                    <div className="text-2xl font-bold mt-1">{count}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Top Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="neon-card p-6 rounded-xl border-l-4 border-indigo-500 bg-gray-900/50">
+            <h3 className="text-gray-400 text-sm font-semibold uppercase">Class Average</h3>
+            <div className="text-4xl font-bold text-white mt-2">{Math.round(data?.classAverage || 0)}%</div>
+            <p className="text-green-400 text-xs mt-2 flex items-center gap-1">
+              <CheckCircle size={14} /> Consistent Performance
+            </p>
+          </div>
 
-            {/* Trend */}
-            <div className="neon-card p-6 rounded-xl">
-              <h3 className="text-lg font-bold mb-2">Submissions (last 14 days)</h3>
-              <LineChart data={overview.submissions.trend} />
+          <div className="neon-card p-6 rounded-xl border-l-4 border-red-500 bg-gray-900/50">
+            <h3 className="text-gray-400 text-sm font-semibold uppercase">High Risk Students</h3>
+            <div className="text-4xl font-bold text-white mt-2">
+              {data?.atRiskStudents?.filter(s => s.metrics.riskScore > 70).length || 0}
             </div>
-          </>
-        )}
+            <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
+              <AlertTriangle size={14} /> Immediate Attention Needed
+            </p>
+          </div>
+
+          <div className="neon-card p-6 rounded-xl border-l-4 border-yellow-500 bg-gray-900/50">
+            <h3 className="text-gray-400 text-sm font-semibold uppercase">Late Submissions</h3>
+            <div className="text-4xl font-bold text-white mt-2">
+              {data?.atRiskStudents?.reduce((acc, curr) => acc + curr.metrics.lateSubmissions, 0) || 0}
+            </div>
+            <p className="text-yellow-400 text-xs mt-2 flex items-center gap-1">
+              <Clock size={14} /> Last 30 Days
+            </p>
+          </div>
+        </div>
+
+        {/* AT-RISK STUDENTS TABLE */}
+        <div className="neon-card rounded-xl overflow-hidden mb-8 shadow-2xl">
+          <div className="p-6 border-b border-gray-800 bg-gray-900/80 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-red-400 flex items-center gap-2">
+              <AlertTriangle className="text-red-500" /> At-Risk Students
+            </h2>
+            <span className="text-xs bg-red-900/30 text-red-200 px-3 py-1 rounded-full border border-red-500/30">
+              Sorted by Risk Score
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-800/50 text-gray-400 text-sm uppercase">
+                <tr>
+                  <th className="px-6 py-4">Student</th>
+                  <th className="px-6 py-4 text-center">Risk Score</th>
+                  <th className="px-6 py-4 text-center">Avg Grade</th>
+                  <th className="px-6 py-4 text-center">Recent Trend</th>
+                  <th className="px-6 py-4 text-center">Missed</th>
+                  <th className="px-6 py-4 text-center">Procrastination</th>
+                  <th className="px-6 py-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {data?.atRiskStudents?.map((item) => {
+                  const risk = item.metrics.riskScore;
+                  const isHighRisk = risk > 70;
+                  const isMediumRisk = risk > 40 && risk <= 70;
+
+                  return (
+                    <tr key={item.student.id} className="hover:bg-white/5 transition duration-150">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-white">{item.student.name}</div>
+                        <div className="text-xs text-gray-400">{item.student.email}</div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="relative inline-flex items-center justify-center">
+                          <svg className="w-12 h-12 transform -rotate-90">
+                            <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4"
+                              className={isHighRisk ? 'text-red-900' : 'text-gray-700'} fill="none" />
+                            <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4"
+                              className={isHighRisk ? 'text-red-500' : isMediumRisk ? 'text-yellow-500' : 'text-green-500'}
+                              fill="none" strokeDasharray={125} strokeDashoffset={125 - (125 * risk) / 100} />
+                          </svg>
+                          <span className="absolute text-xs font-bold">{risk}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center font-mono">
+                        <span className={item.metrics.averageGrade < 60 ? 'text-red-400' : 'text-white'}>
+                          {item.metrics.averageGrade}%
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {item.metrics.recentTrend < item.metrics.averageGrade - 5 ? (
+                            <TrendingDown className="text-red-500" size={16} />
+                          ) : (
+                            <span className="text-gray-600">-</span>
+                          )}
+                          <span className="text-xs text-gray-400 ml-1">
+                            {item.metrics.recentTrend}% (Last 3)
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {item.metrics.missedAssignments > 0 ? (
+                          <span className="text-red-400 font-bold">{item.metrics.missedAssignments}</span>
+                        ) : (
+                          <span className="text-gray-600">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center text-xs">
+                        {item.metrics.lastMinuteSubmissions > 0 && (
+                          <span className="bg-yellow-900/30 text-yellow-200 px-2 py-1 rounded border border-yellow-700/50">
+                            {item.metrics.lastMinuteSubmissions} Last Minute
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {isHighRisk ? (
+                          <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg shadow-red-500/20 animate-pulse">
+                            CRITICAL
+                          </span>
+                        ) : isMediumRisk ? (
+                          <span className="bg-yellow-500/20 text-yellow-200 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/50">
+                            WATCH
+                          </span>
+                        ) : (
+                          <span className="bg-green-500/20 text-green-200 px-3 py-1 rounded-full text-xs font-bold border border-green-500/50">
+                            SAFE
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Grade Distribution Chart */}
+          <div className="neon-card p-6 rounded-xl shadow-lg">
+            <h3 className="text-lg font-bold mb-6 text-gray-200">📊 Grade Distribution</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data?.atRiskStudents.map(s => ({
+                  name: s.student.name.split(' ')[0],
+                  grade: s.metrics.averageGrade
+                })).slice(0, 10)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" />
+                  <YAxis stroke="#9CA3AF" />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }}
+                  />
+                  <Bar dataKey="grade" fill="#6366F1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Risk Factors Chart */}
+          <div className="neon-card p-6 rounded-xl shadow-lg">
+            <h3 className="text-lg font-bold mb-6 text-gray-200">⚠️ Risk Compostion</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Safe', value: data?.atRiskStudents.filter(s => s.metrics.riskScore <= 40).length },
+                      { name: 'Watch', value: data?.atRiskStudents.filter(s => s.metrics.riskScore > 40 && s.metrics.riskScore <= 70).length },
+                      { name: 'Critical', value: data?.atRiskStudents.filter(s => s.metrics.riskScore > 70).length },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {[
+                      { name: 'Safe', color: '#10B981' }, // Green
+                      { name: 'Watch', color: '#F59E0B' }, // Yellow
+                      { name: 'Critical', color: '#EF4444' } // Red
+                    ].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

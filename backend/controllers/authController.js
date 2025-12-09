@@ -11,7 +11,9 @@ const registerUser = async (req, res) => {
 
         // 1. Check if user exists
         let user = await User.findOne({ email });
-        if (user) {
+
+        // If user exists and is verified, block registration
+        if (user && user.isVerified) {
             return res.status(400).json({ msg: 'User already exists' });
         }
 
@@ -19,15 +21,18 @@ const registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // 3. Create User (admin logic preserved)
+        // 3. Determine Role
         let finalRole = role;
         const allowAdminByEmail = process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.toLowerCase() === String(email).toLowerCase();
         const allowAdminByCode = process.env.ADMIN_INVITE_CODE && inviteCode === process.env.ADMIN_INVITE_CODE;
+
         if (role === 'admin' && !(allowAdminByEmail || allowAdminByCode)) {
-            return res.status(403).json({ msg: 'Admin registration not allowed. Provide valid invite code or configured admin email.' });
-        }
-        const adminsCount = await User.countDocuments({ role: 'admin' });
-        if (role === 'admin' && adminsCount === 0) {
+            // Check if it's the first admin ever
+            const adminsCount = await User.countDocuments({ role: 'admin' });
+            if (adminsCount > 0) {
+                return res.status(403).json({ msg: 'Admin registration not allowed. Provide valid invite code or configured admin email.' });
+            }
+            // If 0 admins, allow first one
             finalRole = 'admin';
         } else if (role === 'admin' && (allowAdminByEmail || allowAdminByCode)) {
             finalRole = 'admin';
@@ -39,19 +44,29 @@ const registerUser = async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
 
-        user = new User({
-            name,
-            email,
-            password: hashedPassword,
-            role: finalRole,
-            isVerified: false,
-            otp,
-            otpExpiry
-        });
+        if (user && !user.isVerified) {
+            // Update existing unverified user
+            user.name = name;
+            user.password = hashedPassword;
+            user.role = finalRole;
+            user.otp = otp;
+            user.otpExpiry = otpExpiry;
+            await user.save();
+        } else {
+            // Create new user
+            user = new User({
+                name,
+                email,
+                password: hashedPassword,
+                role: finalRole,
+                isVerified: false,
+                otp,
+                otpExpiry
+            });
+            await user.save();
+        }
 
-        await user.save();
-
-        // 5. Send OTP email (non-blocking UX: allow OTP entry even if email fails)
+        // 5. Send OTP email
         let emailSent = true;
         try {
             await sendOTPEmail(email, otp);
@@ -59,10 +74,25 @@ const registerUser = async (req, res) => {
             emailSent = false;
             console.error('OTP email error:', mailErr);
         }
-        const msg = emailSent
-            ? 'Registration successful. Please check your email for the OTP to verify your account.'
-            : 'Registration successful. Email delivery failed; please enter the OTP shown on the app if available, or request resend later.';
-        res.json({ msg, success: true, emailSent });
+
+        // 6. Response
+        if (emailSent) {
+            res.json({
+                success: true,
+                emailSent: true,
+                msg: 'Registration successful. Please check your email for the OTP.'
+            });
+        } else {
+            // DEV FAILSAFE: If email fails, return OTP in response so user can verify
+            res.json({
+                success: true,
+                emailSent: false,
+                devOtp: otp, // Sending OTP to client for manual entry
+                msg: 'Email delivery failed (Dev Mode). Use the OTP provided in this alert to verify.',
+                debug: 'Since email failed, check the console or this alert for the code.'
+            });
+        }
+
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -136,11 +166,11 @@ const loginUser = async (req, res) => {
 
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' }, (err, token) => {
             if (err) throw err;
-            res.json({ 
-                token, 
-                role: user.role, 
+            res.json({
+                token,
+                role: user.role,
                 name: user.name,
-                msg: "Login successful" 
+                msg: "Login successful"
             });
         });
 

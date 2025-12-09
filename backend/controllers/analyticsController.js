@@ -1,93 +1,107 @@
+const User = require('../models/User');
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 
-// Build match filter based on role: admin sees all, teacher sees own, students denied
-function roleMatch(req) {
-  if (req.user.role === 'admin') {
-    return {};
-  }
-  if (req.user.role === 'teacher') {
-    return { teacher: req.user.id };
-  }
-  return null; // students not allowed
-}
-
-// GET /api/analytics/overview
-// Returns summary cards and trends for assignments and submissions
-const getOverview = async (req, res) => {
+// @desc    Get at-risk students analysis
+// @route   GET /api/analytics
+// @access  Teacher/Admin
+const getAnalytics = async (req, res) => {
   try {
-    const match = roleMatch(req);
-    if (match === null) {
-      return res.status(403).json({ msg: 'Access denied' });
-    }
+    const students = await User.find({ role: 'student' }).select('name email _id');
+    const assignments = await Assignment.find({}).sort({ deadline: 1 });
+    const allSubmissions = await Submission.find({}).populate('assignment');
 
-    // Assignments count
-    const assignmentsMatch = match;
-    const [assignmentsCount] = await Assignment.aggregate([
-      { $match: assignmentsMatch },
-      { $group: { _id: null, count: { $sum: 1 }, published: { $sum: { $cond: ['$published', 1, 0] } } } },
-    ]);
+    const analyticsData = students.map(student => {
+      const studentSubmissions = allSubmissions.filter(sub =>
+        sub.student.toString() === student._id.toString()
+      );
 
-    // Submissions filtered by teacher-owned assignments when teacher
-    let submissionsMatch = {};
-    if (req.user.role === 'teacher') {
-      const teacherAssignmentIds = await Assignment.find(assignmentsMatch).distinct('_id');
-      submissionsMatch = { assignment: { $in: teacherAssignmentIds } };
-    }
-    // admin sees all submissions
+      // 1. Grade Performance
+      const gradedSubmissions = studentSubmissions.filter(sub => sub.grade !== null);
+      const totalScore = gradedSubmissions.reduce((sum, sub) => sum + sub.grade, 0);
+      const averageGrade = gradedSubmissions.length > 0 ? (totalScore / gradedSubmissions.length) : 0;
 
-    const submissionsAgg = await Submission.aggregate([
-      { $match: submissionsMatch },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
+      // 2. Trend Analysis (Last 3 vs Previous)
+      const sortedByDate = gradedSubmissions.sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+      const recent = sortedByDate.slice(-3);
+      const recentAvg = recent.length > 0 ? (recent.reduce((sum, s) => sum + s.grade, 0) / recent.length) : 0;
+      const trend = recentAvg - averageGrade; // Negative means dropping
+
+      // 3. Procrastination & Late Analysis
+      let lateCount = 0;
+      let lastMinuteCount = 0; // < 1 hour before deadline
+      let missedCount = 0;
+
+      assignments.forEach(assign => {
+        // If assignment is published and deadline passed
+        if (assign.published && new Date(assign.deadline) < new Date()) {
+          const sub = studentSubmissions.find(s => s.assignment._id.toString() === assign._id.toString());
+
+          if (!sub) {
+            missedCount++;
+          } else {
+            const deadline = new Date(assign.deadline);
+            const submitted = new Date(sub.submittedAt);
+
+            // Check if late (allow 5 min buffer)
+            if (submitted > deadline) lateCount++;
+
+            // Check last minute (within 2 hours)
+            const diffHours = (deadline - submitted) / (1000 * 60 * 60);
+            if (diffHours >= 0 && diffHours < 2) lastMinuteCount++;
+          }
+        }
+      });
+
+      // 4. Calculate Risk Score (0-100)
+      // Higher is worse
+      let riskScore = 0;
+
+      // Grades
+      if (averageGrade < 50) riskScore += 40;
+      else if (averageGrade < 70) riskScore += 20;
+
+      // Trend
+      if (trend < -10) riskScore += 15; // Significant drop
+
+      // Missed assignments (Very bad)
+      riskScore += (missedCount * 10);
+
+      // Late/Last Minute
+      riskScore += (lateCount * 5);
+      riskScore += (lastMinuteCount * 2);
+
+      return {
+        student: {
+          id: student._id,
+          name: student.name,
+          email: student.email
         },
-      },
-    ]);
+        metrics: {
+          averageGrade: Math.round(averageGrade),
+          recentTrend: Math.round(recentAvg), // Show recent avg
+          missedAssignments: missedCount,
+          lateSubmissions: lateCount,
+          lastMinuteSubmissions: lastMinuteCount,
+          riskScore: Math.min(riskScore, 100) // Cap at 100
+        }
+      };
+    });
 
-    const gradedAgg = await Submission.aggregate([
-      { $match: submissionsMatch },
-      { $match: { status: 'graded' } },
-      {
-        $group: {
-          _id: null,
-          avgGrade: { $avg: '$grade' },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // Trend: submissions per day (last 14 days)
-    const since = new Date();
-    since.setDate(since.getDate() - 14);
-    const submissionsTrend = await Submission.aggregate([
-      { $match: submissionsMatch },
-      { $match: { createdAt: { $gte: since } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
+    // Filter and Sort by Risk
+    const atRiskStudents = analyticsData
+      .sort((a, b) => b.metrics.riskScore - a.metrics.riskScore);
 
     res.json({
-      assignments: {
-        total: assignmentsCount?.count || 0,
-        published: assignmentsCount?.published || 0,
-      },
-      submissions: {
-        byStatus: submissionsAgg.reduce((acc, s) => { acc[s._id || 'unknown'] = s.count; return acc; }, {}),
-        graded: { count: gradedAgg[0]?.count || 0, avgGrade: gradedAgg[0]?.avgGrade || 0 },
-        trend: submissionsTrend.map((t) => ({ date: t._id, count: t.count })),
-      },
+      atRiskStudents,
+      totalStudents: students.length,
+      classAverage: analyticsData.reduce((acc, curr) => acc + curr.metrics.averageGrade, 0) / (analyticsData.length || 1)
     });
+
   } catch (err) {
-    console.error('Analytics overview error:', err);
+    console.error("Analytics Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
-module.exports = { getOverview };
+module.exports = { getAnalytics };
